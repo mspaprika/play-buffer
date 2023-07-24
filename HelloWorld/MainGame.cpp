@@ -20,8 +20,10 @@ struct GameState
 	//int spriteId = 0;
 
 	int score = 0;
-
 	Agent8State agent8State = STATE_APPEAR;
+
+	int gameCount = 1;
+	int totalScore = 0;
 };
 
 GameState gameState;
@@ -64,19 +66,21 @@ void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
 // Called by PlayBuffer every frame (60 times a second!)
 bool MainGameUpdate( float elapsedTime )
 {
-	//gameState.timer += elapsedTime;
-	//Play::ClearDrawingBuffer( Play::cOrange );
+	/*
+	gameState.timer += elapsedTime;
+	Play::ClearDrawingBuffer( Play::cOrange );
 
-	//Play::DrawDebugText( { DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2 },
-	//	Play::GetSpriteName(gameState.spriteId),
-	//	Play::cWhite );
+	Play::DrawDebugText( { DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2 },
+		Play::GetSpriteName(gameState.spriteId),
+		Play::cWhite );
 
-	//Play::DrawSprite(gameState.spriteId, Play::GetMousePos(), gameState.timer);
+	Play::DrawSprite(gameState.spriteId, Play::GetMousePos(), gameState.timer);
 
-	//if (Play::KeyPressed(VK_SPACE))
-	//{
-	//	gameState.spriteId++;
-	//}
+	if (Play::KeyPressed(VK_SPACE))
+	{
+		gameState.spriteId++;
+	}
+	*/
 
 	Play::DrawBackground();
 
@@ -94,6 +98,12 @@ bool MainGameUpdate( float elapsedTime )
 		Play::CENTRE);
 	Play::DrawFontText("132px", "SCORE: " + std::to_string(gameState.score),
 		{ DISPLAY_WIDTH / 2, 50 },
+		Play::CENTRE);
+	Play::DrawFontText("132px", "Game: " + std::to_string(gameState.gameCount),
+		{ DISPLAY_WIDTH - 150, 50 },
+		Play::CENTRE);
+	Play::DrawFontText("132px", "Total: " + std::to_string(gameState.totalScore),
+		{ 200, 50 },
 		Play::CENTRE);
 
 	Play::PresentDrawingBuffer();
@@ -118,7 +128,7 @@ void HandlePlayerControls()
 	}
 	else if (Play::KeyDown(VK_DOWN))
 	{
-		obj_agent8.velocity = { 0, 1 };
+		obj_agent8.velocity = { 0, 2 };
 		Play::SetSprite(obj_agent8, "agent8_fall", 0);
 	}
 	else
@@ -140,12 +150,13 @@ void HandlePlayerControls()
 	if (Play::KeyPressed(VK_SPACE))
 	{
 		Vector2D firePos = obj_agent8.pos + Vector2D(155, -75);
-		int id = Play::CreateGameObject(TYPE_LASER, firePos, 30, "laser");
-		Play::GetGameObject(id).velocity = { 32, 0 };
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
+		Play::GetGameObject(id).velocity = { 52, 0 };
 		Play::PlayAudio("shoot");
 	}
 
-	/*Play::UpdateGameObject(obj_agent8);
+	/*
+	Play::UpdateGameObject(obj_agent8);
 
 	if (Play::IsLeavingDisplayArea(obj_agent8))
 	{
@@ -161,7 +172,7 @@ void UpdateFan()
 {
 	GameObject& obj_fan = Play::GetGameObjectByType(TYPE_FAN);
 
-	if (Play::RandomRoll(50) == 50)
+	if (Play::RandomRoll(100) == 50)
 	{
 		int id = Play::CreateGameObject(TYPE_TOOL, obj_fan.pos, 50, "driver");
 		GameObject& obj_tool = Play::GetGameObject(id);
@@ -171,7 +182,7 @@ void UpdateFan()
 		{
 			Play::SetSprite(obj_tool, "spanner", 0);
 			obj_tool.radius = 100;
-			obj_tool.velocity.x = -4;
+			obj_tool.velocity.x = -2;
 			obj_tool.rotSpeed = 0.1f;
 		}
 		Play::PlayAudio("tool");
@@ -238,7 +249,7 @@ void UpdateCoinsAndStars()
 		GameObject& obj_coin = Play::GetGameObject(id_coin);
 		bool hasCollided = false;
 
-		if (Play::IsColliding(obj_coin, obj_agent8))
+		if (Play::IsColliding(obj_coin, obj_agent8) && gameState.agent8State != STATE_DEAD)
 		{
 			for (float rad{ 0.25f }; rad < 2.0f; rad += 0.5f)
 			{
@@ -361,7 +372,7 @@ void UpdateAgent8()
 	{
 	case STATE_APPEAR:
 		obj_agent8.velocity = { 0, 12 };
-		obj_agent8.acceleration = { 0, 0.5f };
+		obj_agent8.acceleration = { 0, 0.9f };
 		Play::SetSprite(obj_agent8, "agent8_fall", 0);
 		obj_agent8.rotation = 0;
 
@@ -373,6 +384,7 @@ void UpdateAgent8()
 
 	case STATE_HALT:
 		obj_agent8.velocity *= 0.9f;
+		obj_agent8.rotation = 0.2f;
 
 		if (Play::IsAnimationComplete(obj_agent8))
 		{
@@ -385,8 +397,10 @@ void UpdateAgent8()
 		break;
 
 	case STATE_DEAD:
-		obj_agent8.acceleration = { -0.3f, 0.5f };
-		obj_agent8.rotation += 0.25f;
+		obj_agent8.acceleration = { 0.3f, 0.05f };
+		obj_agent8.rotation += 0.5f;
+		gameState.totalScore += gameState.score;
+		gameState.score = 0;
 
 		if (Play::KeyDown(VK_SPACE) == true)
 		{
@@ -395,7 +409,9 @@ void UpdateAgent8()
 			obj_agent8.velocity = { 0, 0 };
 			obj_agent8.frame = 0;
 			Play::StartAudioLoop("music");
+			
 			gameState.score = 0;
+			gameState.gameCount++;
 
 			for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
 			{
@@ -412,6 +428,6 @@ void UpdateAgent8()
 		obj_agent8.pos = obj_agent8.oldPos;
 	}
 
-	Play::DrawLine({ obj_agent8.pos.x, 0 }, obj_agent8.pos, Play::cWhite);
+	Play::DrawLine({ obj_agent8.pos.x, 0 }, obj_agent8.pos, Play::cYellow);
 	Play::DrawObjectRotated(obj_agent8);
 }
