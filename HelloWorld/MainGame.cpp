@@ -12,6 +12,7 @@ enum Agent8State
 	STATE_HALT,
 	STATE_PLAY,
 	STATE_DEAD,
+	STATE_DESTROY,
 };
 
 struct GameState
@@ -48,6 +49,7 @@ void UpdateLasers();
 void UpdateDestroyed();
 void UpdateAgent8();
 
+void Destroy();
 
 // The entry point for a PlayBuffer program
 void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
@@ -94,6 +96,9 @@ bool MainGameUpdate( float elapsedTime )
 	UpdateDestroyed();
 
 	Play::DrawFontText("64px", "ARROW KEYS TO MOVE UP AND DOWN AND SPACE TO FIRE",
+		{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 80 },
+		Play::CENTRE);
+	Play::DrawFontText("64px", "LEFT TO FIRE UP, RIGHT TO FIRE DOWN, SHIFT FOR SHIELD",
 		{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 30 },
 		Play::CENTRE);
 	Play::DrawFontText("132px", "SCORE: " + std::to_string(gameState.score),
@@ -131,6 +136,7 @@ void HandlePlayerControls()
 		obj_agent8.velocity = { 0, 2 };
 		Play::SetSprite(obj_agent8, "agent8_fall", 0);
 	}
+	
 	else
 	{
 		if (obj_agent8.velocity.y > 5)
@@ -152,6 +158,27 @@ void HandlePlayerControls()
 		Vector2D firePos = obj_agent8.pos + Vector2D(155, -75);
 		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
 		Play::GetGameObject(id).velocity = { 52, 0 };
+		Play::PlayAudio("shoot");
+	}
+
+	if (Play::KeyPressed(VK_SHIFT))
+	{
+		gameState.agent8State = STATE_DESTROY;;
+	}
+
+	if (Play::KeyPressed(VK_LEFT))
+	{
+		Vector2D firePos = obj_agent8.pos + Vector2D(10, -75);
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
+		Play::GetGameObject(id).velocity = { 0, -52 };
+		Play::PlayAudio("shoot");
+	}
+
+	if (Play::KeyPressed(VK_RIGHT))
+	{
+		Vector2D firePos = obj_agent8.pos + Vector2D(10, -75);
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
+		Play::GetGameObject(id).velocity = { 0, 52 };
 		Play::PlayAudio("shoot");
 	}
 
@@ -395,6 +422,10 @@ void UpdateAgent8()
 	case STATE_PLAY:
 		HandlePlayerControls();
 		break;
+	
+	case STATE_DESTROY:
+		Destroy();
+		break;
 
 	case STATE_DEAD:
 		obj_agent8.acceleration = { 0.3f, 0.05f };
@@ -430,4 +461,25 @@ void UpdateAgent8()
 
 	Play::DrawLine({ obj_agent8.pos.x, 0 }, obj_agent8.pos, Play::cYellow);
 	Play::DrawObjectRotated(obj_agent8);
+}
+
+void Destroy()
+{
+	GameObject& obj_agent8 = Play::GetGameObjectByType(TYPE_AGENT8);
+	std::vector<int> vTools = Play::CollectGameObjectIDsByType(TYPE_TOOL);
+
+	for (int id_tool : vTools)
+	{
+		GameObject& obj_tool = Play::GetGameObject(id_tool);
+
+		if (Play::IsColliding(obj_agent8, obj_tool))
+		{
+			obj_tool.type = TYPE_DESTROYED;
+			gameState.agent8State = STATE_PLAY;
+		}
+		if (Play::KeyPressed(VK_UP) || Play::KeyPressed(VK_DOWN))
+		{
+			gameState.agent8State = STATE_PLAY;
+		}
+	}
 }
