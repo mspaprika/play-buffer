@@ -13,6 +13,7 @@ enum Agent8State
 	STATE_PLAY,
 	STATE_DEAD,
 	STATE_DESTROY,
+	STATE_WON,
 };
 
 struct GameState
@@ -25,6 +26,8 @@ struct GameState
 
 	int gameCount = 1;
 	int totalScore = 0;
+	int wins = 0;
+	int diamonds = 0;
 };
 
 GameState gameState;
@@ -39,6 +42,7 @@ enum gameObjectType
 	TYPE_STAR,
 	TYPE_LASER,
 	TYPE_DESTROYED,
+	TYPE_DIAMOND,
 };
 
 void HandlePlayerControls();
@@ -50,6 +54,7 @@ void UpdateDestroyed();
 void UpdateAgent8();
 
 void Destroy();
+void UpdateDiamonds();
 
 // The entry point for a PlayBuffer program
 void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
@@ -95,6 +100,8 @@ bool MainGameUpdate( float elapsedTime )
 	UpdateLasers();
 	UpdateDestroyed();
 
+	UpdateDiamonds();
+
 	Play::DrawFontText("64px", "ARROW KEYS TO MOVE UP AND DOWN AND SPACE TO FIRE",
 		{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 80 },
 		Play::CENTRE);
@@ -107,8 +114,14 @@ bool MainGameUpdate( float elapsedTime )
 	Play::DrawFontText("132px", "Game: " + std::to_string(gameState.gameCount),
 		{ DISPLAY_WIDTH - 150, 50 },
 		Play::CENTRE);
+	Play::DrawFontText("64px", "Wins: " + std::to_string(gameState.wins),
+		{ DISPLAY_WIDTH - 150, 150 },
+		Play::CENTRE);
 	Play::DrawFontText("132px", "Total: " + std::to_string(gameState.totalScore),
 		{ 200, 50 },
+		Play::CENTRE);
+	Play::DrawFontText("64px", "Gems: " + std::to_string(gameState.diamonds),
+		{ 150, 150 },
 		Play::CENTRE);
 
 	Play::PresentDrawingBuffer();
@@ -223,6 +236,14 @@ void UpdateFan()
 		obj_coin.rotSpeed = 0.1f;
 	}
 
+	if (Play::RandomRoll(200) == 1)
+	{
+		int id = Play::CreateGameObject(TYPE_DIAMOND, obj_fan.pos, 40, "diamond");
+		GameObject& obj_diamond = Play::GetGameObject(id);
+		obj_diamond.velocity = { -3, 0 };
+		obj_diamond.rotSpeed = 0.1f;
+	}
+
 	Play::UpdateGameObject(obj_fan);
 
 	if (Play::IsLeavingDisplayArea(obj_fan))
@@ -276,7 +297,7 @@ void UpdateCoinsAndStars()
 		GameObject& obj_coin = Play::GetGameObject(id_coin);
 		bool hasCollided = false;
 
-		if (Play::IsColliding(obj_coin, obj_agent8) && gameState.agent8State != STATE_DEAD)
+		if (Play::IsColliding(obj_coin, obj_agent8) && gameState.agent8State != STATE_DEAD && gameState.agent8State != STATE_WON)
 		{
 			for (float rad{ 0.25f }; rad < 2.0f; rad += 0.5f)
 			{
@@ -323,6 +344,7 @@ void UpdateLasers()
 	std::vector<int> vLasers = Play::CollectGameObjectIDsByType(TYPE_LASER);
 	std::vector<int> vTools = Play::CollectGameObjectIDsByType(TYPE_TOOL);
 	std::vector<int> vCoins = Play::CollectGameObjectIDsByType(TYPE_COIN);
+	std::vector<int> vDiamonds = Play::CollectGameObjectIDsByType(TYPE_DIAMOND);
 
 	for (int id_laser : vLasers)
 	{
@@ -338,6 +360,18 @@ void UpdateLasers()
 				hasCollided = true;
 				obj_tool.type = TYPE_DESTROYED;
 				gameState.score += 100;
+			}
+		}
+
+		for (int id_diamond : vDiamonds)
+		{
+			GameObject& obj_diamond = Play::GetGameObject(id_diamond);
+
+			if (Play::IsColliding(obj_laser, obj_diamond))
+			{
+				hasCollided = true;
+				obj_diamond.type = TYPE_DESTROYED;
+				Play::PlayAudio("error");
 			}
 		}
 
@@ -427,11 +461,57 @@ void UpdateAgent8()
 		Destroy();
 		break;
 
+	case STATE_WON:
+
+		obj_agent8.acceleration = { 0, -0.1f };
+
+		Play::DrawFontText("132px", "VICTORY!!!",
+			{ DISPLAY_WIDTH / 2, 200 },
+			Play::CENTRE);
+
+		for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
+		{
+			GameObject& obj_tool = Play::GetGameObject(id_obj);
+			if (Play::IsColliding(obj_agent8, obj_tool))
+			{
+
+				obj_tool.type = TYPE_DESTROYED;
+			}
+		}
+
+		if (Play::KeyDown(VK_SPACE) == true)
+		{
+			gameState.agent8State = STATE_APPEAR;
+			obj_agent8.pos = { 115, 0 };
+			obj_agent8.velocity = { 0, 0 };
+			obj_agent8.frame = 0;
+			Play::StartAudioLoop("music");
+
+			gameState.score = 0;
+			gameState.gameCount++;
+
+			for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
+			{
+				Play::GetGameObject(id_obj).type = TYPE_DESTROYED;
+			}
+		}
+
+		break;
+
 	case STATE_DEAD:
 		obj_agent8.acceleration = { 0.3f, 0.05f };
 		obj_agent8.rotation += 0.5f;
+		
+
+		int finalScore = gameState.score;
 		gameState.totalScore += gameState.score;
+
+		Play::DrawFontText("132px", "GAME OVER",
+			{ DISPLAY_WIDTH / 2, 200 },
+			Play::CENTRE);
+
 		gameState.score = 0;
+		gameState.diamonds = 0;
 
 		if (Play::KeyDown(VK_SPACE) == true)
 		{
@@ -477,9 +557,68 @@ void Destroy()
 			obj_tool.type = TYPE_DESTROYED;
 			gameState.agent8State = STATE_PLAY;
 		}
-		if (Play::KeyPressed(VK_UP) || Play::KeyPressed(VK_DOWN))
+		if (Play::KeyPressed(VK_UP) || Play::KeyPressed(VK_DOWN) || Play::KeyPressed(VK_SPACE))
 		{
 			gameState.agent8State = STATE_PLAY;
+		}
+	}
+}
+
+void UpdateDiamonds()
+{
+	GameObject& obj_agent8 = Play::GetGameObjectByType(TYPE_AGENT8);
+	std::vector<int> vDiamonds = Play::CollectGameObjectIDsByType(TYPE_DIAMOND);
+
+
+	for (int id_diamond : vDiamonds)
+	{
+		GameObject& obj_diamond = Play::GetGameObject(id_diamond);
+		bool hasCollided = false;
+
+		if (Play::IsColliding(obj_diamond, obj_agent8) && gameState.agent8State != STATE_DEAD  && gameState.agent8State != STATE_WON)
+		{
+			for (float rad{ 0.25f }; rad < 2.0f; rad += 0.5f)
+			{
+				int id = Play::CreateGameObject(TYPE_STAR, obj_agent8.pos, 0, "star");
+				GameObject& obj_star = Play::GetGameObject(id);
+				obj_star.rotSpeed = 0.1f;
+				obj_star.acceleration = { 0.0f, 0.5f };
+				Play::SetGameObjectDirection(obj_star, 16, rad * PLAY_PI);
+			}
+
+			hasCollided = true;
+			Play::PlayAudio("collect");
+			gameState.diamonds += 1;
+
+			if (gameState.diamonds == 5)
+			{
+				gameState.agent8State = STATE_WON;
+				gameState.wins++;
+
+			}
+		}
+
+		Play::UpdateGameObject(obj_diamond);
+		Play::DrawObjectRotated(obj_diamond);
+
+		if (!Play::IsVisible(obj_diamond) || hasCollided)
+		{
+			Play::DestroyGameObject(id_diamond);
+		}
+	}
+
+	std::vector<int> vStars = Play::CollectGameObjectIDsByType(TYPE_STAR);
+
+	for (int id_star : vStars)
+	{
+		GameObject& obj_star = Play::GetGameObject(id_star);
+
+		Play::UpdateGameObject(obj_star);
+		Play::DrawObjectRotated(obj_star);
+
+		if (Play::IsVisible(obj_star))
+		{
+			Play::DestroyGameObject(id_star);
 		}
 	}
 }
