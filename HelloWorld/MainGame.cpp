@@ -55,6 +55,7 @@ void UpdateAgent8();
 
 void Destroy();
 void UpdateDiamonds();
+void DestroyAllItems();
 
 // The entry point for a PlayBuffer program
 void MainGameEntry( PLAY_IGNORE_COMMAND_LINE )
@@ -105,23 +106,23 @@ bool MainGameUpdate( float elapsedTime )
 	Play::DrawFontText("64px", "ARROW KEYS TO MOVE UP AND DOWN AND SPACE TO FIRE",
 		{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 80 },
 		Play::CENTRE);
-	Play::DrawFontText("64px", "LEFT TO FIRE UP, RIGHT TO FIRE DOWN, SHIFT FOR SHIELD",
+	Play::DrawFontText("64px", "LEFT TO FIRE UP, RIGHT TO FIRE DOWN, TAB FOR DIAGONAL, SHIFT FOR SHIELD",
 		{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT - 30 },
 		Play::CENTRE);
 	Play::DrawFontText("132px", "SCORE: " + std::to_string(gameState.score),
 		{ DISPLAY_WIDTH / 2, 50 },
 		Play::CENTRE);
-	Play::DrawFontText("132px", "Game: " + std::to_string(gameState.gameCount),
-		{ DISPLAY_WIDTH - 150, 50 },
+	Play::DrawFontText("64px", "Game: " + std::to_string(gameState.gameCount),
+		{ DISPLAY_WIDTH - 100, 50 },
 		Play::CENTRE);
 	Play::DrawFontText("64px", "Wins: " + std::to_string(gameState.wins),
-		{ DISPLAY_WIDTH - 150, 150 },
+		{ DISPLAY_WIDTH - 300, 50 },
 		Play::CENTRE);
-	Play::DrawFontText("132px", "Total: " + std::to_string(gameState.totalScore),
-		{ 200, 50 },
+	Play::DrawFontText("64px", "Total: " + std::to_string(gameState.totalScore),
+		{ 100, 50 },
 		Play::CENTRE);
 	Play::DrawFontText("64px", "Gems: " + std::to_string(gameState.diamonds),
-		{ 150, 150 },
+		{ 300, 50 },
 		Play::CENTRE);
 
 	Play::PresentDrawingBuffer();
@@ -182,7 +183,7 @@ void HandlePlayerControls()
 	if (Play::KeyPressed(VK_LEFT))
 	{
 		Vector2D firePos = obj_agent8.pos + Vector2D(10, -75);
-		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "star");
 		Play::GetGameObject(id).velocity = { 0, -52 };
 		Play::PlayAudio("shoot");
 	}
@@ -190,58 +191,59 @@ void HandlePlayerControls()
 	if (Play::KeyPressed(VK_RIGHT))
 	{
 		Vector2D firePos = obj_agent8.pos + Vector2D(10, -75);
-		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "laser");
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "star");
 		Play::GetGameObject(id).velocity = { 0, 52 };
 		Play::PlayAudio("shoot");
 	}
 
-	/*
-	Play::UpdateGameObject(obj_agent8);
-
-	if (Play::IsLeavingDisplayArea(obj_agent8))
+	if (Play::KeyPressed(VK_TAB))
 	{
-		obj_agent8.pos = obj_agent8.oldPos;
+		Vector2D firePos = obj_agent8.pos + Vector2D(10, -75);
+		int id = Play::CreateGameObject(TYPE_LASER, firePos, 50, "star");
+		Play::GetGameObject(id).velocity = { 50, -20 };
+		int id2 = Play::CreateGameObject(TYPE_LASER, firePos, 50, "star");
+		Play::GetGameObject(id2).velocity = { 50, 20 };
+		Play::PlayAudio("shoot");
 	}
-
-	Play::DrawLine({ obj_agent8.pos.x, 0 }, obj_agent8.pos, Play::cWhite);
-	Play::DrawObjectRotated(obj_agent8);
-	*/
 }
 
 void UpdateFan()
 {
 	GameObject& obj_fan = Play::GetGameObjectByType(TYPE_FAN);
 
-	if (Play::RandomRoll(100) == 50)
-	{
-		int id = Play::CreateGameObject(TYPE_TOOL, obj_fan.pos, 50, "driver");
-		GameObject& obj_tool = Play::GetGameObject(id);
-		obj_tool.velocity = Point2f(-8, Play::RandomRollRange(-1, 1) * 6);
+	if (gameState.agent8State == STATE_PLAY) {
 
-		if (Play::RandomRoll(2) == 1)
+		if (Play::RandomRoll(100) == 50)
 		{
-			Play::SetSprite(obj_tool, "spanner", 0);
-			obj_tool.radius = 100;
-			obj_tool.velocity.x = -2;
-			obj_tool.rotSpeed = 0.1f;
+			int id = Play::CreateGameObject(TYPE_TOOL, obj_fan.pos, 50, "driver");
+			GameObject& obj_tool = Play::GetGameObject(id);
+			obj_tool.velocity = Point2f(-8, Play::RandomRollRange(-1, 1) * 6);
+
+			if (Play::RandomRoll(2) == 1)
+			{
+				Play::SetSprite(obj_tool, "spanner", 0);
+				obj_tool.radius = 100;
+				obj_tool.velocity.x = -2;
+				obj_tool.rotSpeed = 0.1f;
+			}
+			Play::PlayAudio("tool");
 		}
-		Play::PlayAudio("tool");
-	}
 
-	if (Play::RandomRoll(150) == 1)
-	{
-		int id = Play::CreateGameObject(TYPE_COIN, obj_fan.pos, 40, "coin");
-		GameObject& obj_coin = Play::GetGameObject(id);
-		obj_coin.velocity = { -3, 0 };
-		obj_coin.rotSpeed = 0.1f;
-	}
+		if (Play::RandomRoll(150) == 1)
+		{
+			int id = Play::CreateGameObject(TYPE_COIN, obj_fan.pos, 40, "coin");
+			GameObject& obj_coin = Play::GetGameObject(id);
+			obj_coin.velocity = { -3, 0 };
+			obj_coin.rotSpeed = 0.1f;
+		}
 
-	if (Play::RandomRoll(200) == 1)
-	{
-		int id = Play::CreateGameObject(TYPE_DIAMOND, obj_fan.pos, 40, "diamond");
-		GameObject& obj_diamond = Play::GetGameObject(id);
-		obj_diamond.velocity = { -3, 0 };
-		obj_diamond.rotSpeed = 0.1f;
+		if (Play::RandomRoll(200) == 1)
+		{
+			int id = Play::CreateGameObject(TYPE_DIAMOND, obj_fan.pos, 40, "diamond");
+			GameObject& obj_diamond = Play::GetGameObject(id);
+			obj_diamond.velocity = { -3, 0 };
+			obj_diamond.rotSpeed = 0.1f;
+		}
 	}
 
 	Play::UpdateGameObject(obj_fan);
@@ -270,6 +272,7 @@ void UpdateTools()
 			Play::PlayAudio("die");
 			gameState.agent8State = STATE_DEAD;
 			//obj_agent8.pos = { -100, 100 };
+			
 		}
 		Play::UpdateGameObject(obj_tool);
 
@@ -465,19 +468,15 @@ void UpdateAgent8()
 
 		obj_agent8.acceleration = { 0, -0.1f };
 
-		Play::DrawFontText("132px", "VICTORY!!!",
+		Play::DrawFontText("132px", "VICTORY !!!",
 			{ DISPLAY_WIDTH / 2, 200 },
 			Play::CENTRE);
 
-		for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
-		{
-			GameObject& obj_tool = Play::GetGameObject(id_obj);
-			if (Play::IsColliding(obj_agent8, obj_tool))
-			{
-
-				obj_tool.type = TYPE_DESTROYED;
-			}
-		}
+		Play::DrawFontText("64px", "Press SPACE for a new game",
+			{ DISPLAY_WIDTH / 2, 300 },
+			Play::CENTRE);
+		
+		DestroyAllItems();
 
 		if (Play::KeyDown(VK_SPACE) == true)
 		{
@@ -488,30 +487,27 @@ void UpdateAgent8()
 			Play::StartAudioLoop("music");
 
 			gameState.score = 0;
+			gameState.diamonds = 0;
 			gameState.gameCount++;
-
-			for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
-			{
-				Play::GetGameObject(id_obj).type = TYPE_DESTROYED;
-			}
 		}
-
 		break;
 
 	case STATE_DEAD:
 		obj_agent8.acceleration = { 0.3f, 0.05f };
 		obj_agent8.rotation += 0.5f;
 		
-
-		int finalScore = gameState.score;
-		gameState.totalScore += gameState.score;
-
-		Play::DrawFontText("132px", "GAME OVER",
+		Play::DrawFontText("132px", "GAME OVER" ,
 			{ DISPLAY_WIDTH / 2, 200 },
+			Play::CENTRE);
+		
+		Play::DrawFontText("64px", "Press SPACE for a new game",
+			{ DISPLAY_WIDTH / 2, 300 },
 			Play::CENTRE);
 
 		gameState.score = 0;
 		gameState.diamonds = 0;
+
+		DestroyAllItems(); 
 
 		if (Play::KeyDown(VK_SPACE) == true)
 		{
@@ -523,11 +519,6 @@ void UpdateAgent8()
 			
 			gameState.score = 0;
 			gameState.gameCount++;
-
-			for (int id_obj : Play::CollectGameObjectIDsByType(TYPE_TOOL))
-			{
-				Play::GetGameObject(id_obj).type = TYPE_DESTROYED;
-			}
 		}
 		break;
 	}
@@ -564,11 +555,28 @@ void Destroy()
 	}
 }
 
+void DestroyAllItems()
+{
+	for (int id_tool : Play::CollectGameObjectIDsByType(TYPE_TOOL))
+	{
+		Play::GetGameObject(id_tool).type = TYPE_DESTROYED;
+	}
+
+	for (int id_coin : Play::CollectGameObjectIDsByType(TYPE_COIN))
+	{
+		Play::GetGameObject(id_coin).type = TYPE_DESTROYED;
+	}
+
+	for (int id_diamond : Play::CollectGameObjectIDsByType(TYPE_DIAMOND))
+	{
+		Play::GetGameObject(id_diamond).type = TYPE_DESTROYED;
+	}
+}
+
 void UpdateDiamonds()
 {
 	GameObject& obj_agent8 = Play::GetGameObjectByType(TYPE_AGENT8);
 	std::vector<int> vDiamonds = Play::CollectGameObjectIDsByType(TYPE_DIAMOND);
-
 
 	for (int id_diamond : vDiamonds)
 	{
@@ -593,8 +601,8 @@ void UpdateDiamonds()
 			if (gameState.diamonds == 5)
 			{
 				gameState.agent8State = STATE_WON;
+				gameState.totalScore += gameState.score;
 				gameState.wins++;
-
 			}
 		}
 
